@@ -88,7 +88,7 @@ jobs:
         run: |
           ls -a 
           cd  ${{ matrix.workspaces }}   
-          npx componly scan  --design-token-globs **/*.* --design-systems-path   ./.componly/ds.json --config-path ./ 
+          npx componly scan  --design-token-globs **/*.* --design-systems-path   ./.componly/ds.json --config-path ./   --project  ./
 
       - name: Post scan.json
         id: post-scan
