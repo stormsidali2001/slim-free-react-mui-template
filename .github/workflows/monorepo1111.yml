@@ -46,7 +46,7 @@ jobs:
         uses: actions/github-script@v6.4.1
         with:
           script: |
-            process.env.NODE_PATH ="${{ matrix.workspaces}}"
+           process.chdir("${{ matrix.workspaces}}")
             const { writeFileSync ,mkdirSync,existsSync} = require("fs");
             const axios = require("axios");
 
