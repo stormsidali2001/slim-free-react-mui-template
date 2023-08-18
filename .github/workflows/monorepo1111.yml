@@ -1,0 +1,143 @@
+name: Monorepo111
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        workspaces:
+          - ./complete-template
+          - ./clean-template
+
+    continue-on-error: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3.5.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2.5.2
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        id: install-dependencies
+        run: |
+          echo -e "\n@componly:registry=https://npm.pkg.github.com/" >> .npmrc
+          echo //npm.pkg.github.com/:_authToken=${{ secrets.COMPONLY_NPM_AUTH_TOKEN }} >> .npmrc
+          if [[ "${{ matrix.workspaces}}" != "empty" ]]; then
+              pwd
+              pushd ${{ matrix.workspaces }}
+              yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios -D 
+              popd
+          else
+              echo "No workspaces to install. Running 'yarn install' in the root directory."
+              yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios -D 
+          fi
+
+      - name: Pre scan.json
+        id: pre-scan
+        uses: actions/github-script@v6.4.1
+        with:
+          script: |
+            const workspaces = "${{ matrix.workspaces }}";
+            console.log(workspaces);  
+
+            const { writeFileSync ,mkdirSync,existsSync} = require("fs");
+            const axios = require("axios");
+
+            const instance = axios.create({
+              baseURL: "https://backend-production-e808.up.railway.app",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            });
+
+            async function preScan() {
+              const projectLoginResponse = await instance.post("/auth/login/cli", {
+                cliId: "${{secrets.COMPONLY_API_KEY}}",
+                password: "${{secrets.COMPONLY_API_SECRET}}",
+              });
+
+              const token = projectLoginResponse.data.token;
+
+              const response = await instance.get(
+                '/companies/cli/design-systems/all',
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`
+                  },
+                }
+              );
+              if(!existsSync(workspaces+".componly")){
+                mkdirSync(workspaces+".componly")
+              }
+              writeFileSync(workspaces+".componly/ds.json", JSON.stringify(response.data, undefined, 2))
+
+              console.log(response.status);
+            }
+
+            preScan().catch(console.log);
+
+      - name: scan
+        id: componly-scan
+        run: npx componly scan  --design-token-globs **/*.* --design-systems-path   ${{ matrix.workspaces }}.componly/ds.json --config-path  ${{ matrix.workspaces }}  --project  ${{ matrix.workspaces }}
+
+      - name: Post scan.json
+        id: post-scan
+        env:
+          COMMIT_NAME: ${{ github.event.head_commit.message }}
+          COMMIT_HASH: ${{ github.sha }}
+        uses: actions/github-script@v6.4.1
+        with:
+          script: |
+            const commitName = process.env.COMMIT_NAME;
+            const commitHash = process.env.COMMIT_HASH;
+            console.log("commit name",commitName);
+            console.log("commmit hash",commitHash)
+            const workspaces = "${{ matrix.workspaces }}";
+            console.log("workspaces------------>",workspaces); 
+            const FormData = require("form-data");
+            const { createReadStream, readFileSync } = require("fs");
+            const axios = require("axios");
+
+            const instance = axios.create({
+              baseURL: "https://backend-production-e808.up.railway.app",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            });
+
+            async function postScan() {
+              const serializedConfig = readFileSync("./componly.config.json");
+              const { codebaseID } = JSON.parse(serializedConfig);
+              const projectLoginResponse = await instance.post("/auth/login/cli", {
+                cliId: "${{secrets.COMPONLY_API_KEY}}",
+                password: "${{secrets.COMPONLY_API_SECRET}}",
+              });
+
+              const token = projectLoginResponse.data.token;
+              const formData = new FormData();
+              const fileStream = createReadStream("./.componly/scan.json");
+              formData.append("file", fileStream);
+
+              const response = await instance.post(
+                `/scans/upload/${codebaseID}?commitMessage=${commitName}&commitHash=${commitHash}`,
+                formData,
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    ...formData.getHeaders(),
+                  },
+                }
+              );
+
+              console.log(response.status);
+            }
+
+            postScan().catch(console.log);
