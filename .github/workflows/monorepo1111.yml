@@ -33,7 +33,7 @@ jobs:
           if [[ "${{ matrix.workspaces}}" != "empty" ]]; then
               pwd
               pushd ${{ matrix.workspaces }}
-              echo "workspace : -----> ${{ workspaces }}"
+              echo "workspace : -----> ${{ matrix.workspaces}}"
               yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios -D 
               popd
           else
