@@ -39,14 +39,14 @@ jobs:
               echo "No workspaces to install. Running 'yarn install' in the root directory."
               yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios -D 
           fi
-
+      - name: Navigate and Execute
+        run: |
+          cd ${{ matrix.workspaces }}
       - name: Pre scan.json
         id: pre-scan
         uses: actions/github-script@v6.4.1
         with:
           script: |
-            const workspaces = "${{ matrix.workspaces }}";
-            console.log(workspaces);  
 
             const { writeFileSync ,mkdirSync,existsSync} = require("fs");
             const axios = require("axios");
@@ -74,10 +74,10 @@ jobs:
                   },
                 }
               );
-              if(!existsSync(workspaces+".componly")){
-                mkdirSync(workspaces+".componly")
+              if(!existsSync(".componly")){
+                mkdirSync(".componly")
               }
-              writeFileSync(workspaces+".componly/ds.json", JSON.stringify(response.data, undefined, 2))
+              writeFileSync(".componly/ds.json", JSON.stringify(response.data, undefined, 2))
 
               console.log(response.status);
             }
