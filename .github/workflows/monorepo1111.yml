@@ -85,7 +85,7 @@ jobs:
 
       - name: scan
         id: componly-scan
-        run: npx componly scan  --design-token-globs **/*.* --design-systems-path   ${{ matrix.workspaces }}.componly/ds.json --config-path  ${{ matrix.workspaces }}  --project  ${{ matrix.workspaces }}
+        run: cd  ${{ matrix.workspaces }} &&  npx componly scan  --design-token-globs **/*.* --design-systems-path   ${{ matrix.workspaces }}.componly/ds.json --config-path  ${{ matrix.workspaces }}  
 
       - name: Post scan.json
         id: post-scan
