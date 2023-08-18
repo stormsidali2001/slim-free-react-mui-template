@@ -34,11 +34,11 @@ jobs:
               pwd
               pushd ${{ matrix.workspaces }}
               echo "workspace : -----> ${{ matrix.workspaces}}"
-              yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios -D 
+              yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios form-data -D 
               popd
           else
               echo "No workspaces to install. Running 'yarn install' in the root directory."
-              yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios -D 
+              yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios form-data -D 
           fi
     
       - name: Pre scan.json
