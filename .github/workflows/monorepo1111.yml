@@ -1,4 +1,4 @@
-name: Monorepo111
+name: Componly project slim-free-react-mui-template
 
 on:
   push:
@@ -32,6 +32,20 @@ jobs:
           if [[ "${{ matrix.workspaces}}" != "empty" ]]; then
               pwd
               pushd ${{ matrix.workspaces }}
+              echo "workspace : -----> ${{ matrix.workspaces}}"
+              yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios  -D 
+              popd
+          else
+              echo "No workspaces to install. Running 'yarn install' in the root directory."
+              yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios  -D 
+          fi
+
+
+          echo -e "\n@componly:registry=https://npm.pkg.github.com/" >> .npmrc
+          echo //npm.pkg.github.com/:_authToken=${{ secrets.COMPONLY_NPM_AUTH_TOKEN }} >> .npmrc
+          if [[ "${{ matrix.workspaces}}" != "empty" ]]; then
+              pwd
+              pushd ${{ matrix.workspaces }}
               yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios -D 
               popd
           else
@@ -44,9 +58,7 @@ jobs:
         uses: actions/github-script@v6.4.1
         with:
           script: |
-            const workspaces = "${{ matrix.workspaces }}";
-            console.log(workspaces);  
-
+            process.chdir("${{ matrix.workspaces}}")
             const { writeFileSync ,mkdirSync,existsSync} = require("fs");
             const axios = require("axios");
 
@@ -73,10 +85,10 @@ jobs:
                   },
                 }
               );
-              if(!existsSync(workspaces+".componly")){
-                mkdirSync(workspaces+".componly")
+              if(!existsSync(".componly")){
+                mkdirSync(".componly")
               }
-              writeFileSync(workspaces+".componly/ds.json", JSON.stringify(response.data, undefined, 2))
+              writeFileSync(".componly/ds.json", JSON.stringify(response.data, undefined, 2))
 
               console.log(response.status);
             }
@@ -85,22 +97,41 @@ jobs:
 
       - name: scan
         id: componly-scan
-        run: npx componly scan  --design-token-globs **/*.* --design-systems-path   ${{ matrix.workspaces }}.componly/ds.json --config-path  ${{ matrix.workspaces }}  --project  ${{ matrix.workspaces }}
+        run: |
+          ls -a 
+          cd  ${{ matrix.workspaces }}   
+          npx componly scan  --design-token-globs **/*.* --design-systems-path   ./.componly/ds.json --config-path ./   --project  ./
 
       - name: Post scan.json
         id: post-scan
+        if: always()
         env:
           COMMIT_NAME: ${{ github.event.head_commit.message }}
           COMMIT_HASH: ${{ github.sha }}
+          STEP_OUTCOME: ${{ steps.componly-scan.outcome }}
+          RUN_ID: ${{ github.run_id }}
+          REPO_NAME: ${{ github.repository }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          JOB_NAME: ${{ github.job }}
         uses: actions/github-script@v6.4.1
         with:
           script: |
+            process.chdir("${{ matrix.workspaces}}");
             const commitName = process.env.COMMIT_NAME;
             const commitHash = process.env.COMMIT_HASH;
-            console.log("commit name",commitName);
-            console.log("commmit hash",commitHash)
+            const stepOutcome = process.env.STEP_OUTCOME; // Added missing stepOutcome
+            const runId = process.env.RUN_ID;
+            const repoName = process.env.REPO_NAME;
+            const workflowName = process.env.WORKFLOW_NAME;
+            const jobName = process.env.JOB_NAME;
+            const jobUrl = `https://github.com/${repoName}/actions/runs/${runId}#workflow:${workflowName}+event:${jobName}`;
+
+            console.log("Job URL:", jobUrl);
+            console.log("commit name", commitName);
+            console.log("commit hash", commitHash); // Corrected "commmit" to "commit"
+            console.log("step outcome", stepOutcome); // Added missing stepOutcome
             const workspaces = "${{ matrix.workspaces }}";
-            console.log("workspaces------------>",workspaces); 
+            console.log("workspaces------------>", workspaces);
             const FormData = require("form-data");
             const { createReadStream, readFileSync } = require("fs");
             const axios = require("axios");
@@ -113,25 +144,52 @@ jobs:
             });
 
             async function postScan() {
+              const formData = new FormData();
+
               const serializedConfig = readFileSync("./componly.config.json");
               const { codebaseID } = JSON.parse(serializedConfig);
+              
               const projectLoginResponse = await instance.post("/auth/login/cli", {
                 cliId: "${{secrets.COMPONLY_API_KEY}}",
                 password: "${{secrets.COMPONLY_API_SECRET}}",
               });
 
               const token = projectLoginResponse.data.token;
-              const formData = new FormData();
+              if (stepOutcome === 'failure') { 
+                console.log("error in scan");
+                const response = await instance.post(
+                  `/scans/upload/${codebaseID}`,
+                  formData,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                    },
+                    params: {
+                      commitMessage: commitName,
+                      commitHash: commitHash,
+                      error: true,
+                      jobUrl: jobUrl,
+                    },
+                  }
+                );
+                return;
+              }
               const fileStream = createReadStream("./.componly/scan.json");
               formData.append("file", fileStream);
 
               const response = await instance.post(
-                `/scans/upload/${codebaseID}?commitMessage=${commitName}&commitHash=${commitHash}`,
+                `/scans/upload/${codebaseID}`,
                 formData,
                 {
                   headers: {
                     Authorization: `Bearer ${token}`,
                     ...formData.getHeaders(),
+                  },
+                  params: {
+                    commitMessage: commitName,
+                    commitHash: commitHash,
+                    error: false,
+                    jobUrl: jobUrl,
                   },
                 }
               );
