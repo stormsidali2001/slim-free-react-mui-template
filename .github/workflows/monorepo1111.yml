@@ -37,11 +37,11 @@ jobs:
               pwd
               pushd ${{ matrix.workspaces }}
               echo "workspace : -----> ${{ matrix.workspaces}}"
-              yarn install --prefer-offline && yarn add @componly/core  @componly/schemas  @componly/cli axios  -D --prefer-offline
+              yarn install --prefer-offline && yarn add @componly/core  @componly/schemas  @componly/cli axios form-data  -D --prefer-offline
               popd
           else
               echo "No workspaces to install. Running 'yarn install' in the root directory."
-              yarn install --prefer-offline && yarn add @componly/core  @componly/schemas  @componly/cli axios  -D --prefer-offline
+              yarn install --prefer-offline && yarn add @componly/core  @componly/schemas  @componly/cli axios form-data  -D --prefer-offline
           fi
 
 
