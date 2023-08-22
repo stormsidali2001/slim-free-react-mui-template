@@ -1,4 +1,4 @@
-name: Componly project slim-free-react-mui-template
+name: Componly project Slim free react mui template
 
 on:
   push:
@@ -23,6 +23,10 @@ jobs:
         uses: actions/setup-node@v2.5.2
         with:
           node-version: 18
+          cache: 'yarn'
+
+     
+
 
       - name: Install dependencies
         id: install-dependencies
@@ -33,11 +37,11 @@ jobs:
               pwd
               pushd ${{ matrix.workspaces }}
               echo "workspace : -----> ${{ matrix.workspaces}}"
-              yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios  -D 
+              yarn install --prefer-offline && yarn add @componly/core  @componly/schemas  @componly/cli axios  -D --prefer-offline
               popd
           else
               echo "No workspaces to install. Running 'yarn install' in the root directory."
-              yarn install && yarn add @componly/core  @componly/schemas  @componly/cli axios  -D 
+              yarn install --prefer-offline && yarn add @componly/core  @componly/schemas  @componly/cli axios  -D --prefer-offline
           fi
 
 
@@ -100,7 +104,7 @@ jobs:
         run: |
           ls -a 
           cd  ${{ matrix.workspaces }}   
-          npx componly scan  --design-token-globs **/*.* --design-systems-path   ./.componly/ds.json --config-path ./   --project  ./
+          npx componly scan   --design-systems-path   ./.componly/ds.json --config-path ./   --project  ./
 
       - name: Post scan.json
         id: post-scan
@@ -158,8 +162,8 @@ jobs:
               if (stepOutcome === 'failure') { 
                 console.log("error in scan");
                 const response = await instance.post(
-                  `/scans/upload/${codebaseID}`,
-                  formData,
+                  `/scans/submit-failure/${codebaseID}`,
+                  {},
                   {
                     headers: {
                       Authorization: `Bearer ${token}`,
@@ -167,7 +171,6 @@ jobs:
                     params: {
                       commitMessage: commitName,
                       commitHash: commitHash,
-                      error: true,
                       jobUrl: jobUrl,
                     },
                   }
@@ -188,7 +191,6 @@ jobs:
                   params: {
                     commitMessage: commitName,
                     commitHash: commitHash,
-                    error: false,
                     jobUrl: jobUrl,
                   },
                 }
